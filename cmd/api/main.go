@@ -1,9 +1,18 @@
+// @title           Dished API
+// @version         1.0
+// @description     Backend API for the Dished chef platform.
+// @host            localhost:8081
+// @BasePath        /api/v1
+
 package main
 
 import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	_ "github.com/yourusername/dished-go-backend/docs"
 	"github.com/yourusername/dished-go-backend/internal/config"
 	"github.com/yourusername/dished-go-backend/internal/database"
 	"github.com/yourusername/dished-go-backend/internal/handlers"
@@ -24,7 +33,7 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&models.User{}, &models.CookProfile{}, &models.Cook{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.ChefProfile{}, &models.Chef{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -37,13 +46,13 @@ func main() {
 	userService := service.NewUserService(userRepo, redisClient)
 	userHandler := handlers.NewUserHandler(userService)
 
-	cookRepo := repository.NewCookRepository(db)
-	cookService := service.NewCookService(cookRepo, redisClient)
-	cookHandler := handlers.NewCookHandler(cookService)
+	chefRepo := repository.NewChefRepository(db)
+	chefProfileRepo := repository.NewChefProfileRepository(db)
+	chefService := service.NewChefService(chefRepo, chefProfileRepo, redisClient)
+	chefHandler := handlers.NewChefHandler(chefService)
 
-	cookProfileRepo := repository.NewCookProfileRepository(db)
-	cookProfileService := service.NewCookProfileService(cookProfileRepo, redisClient)
-	cookProfileHandler := handlers.NewCookProfileHandler(cookProfileService)
+	chefProfileService := service.NewChefProfileService(chefProfileRepo, redisClient)
+	chefProfileHandler := handlers.NewChefProfileHandler(chefProfileService)
 
 	router := gin.Default()
 	router.Use(middleware.CORS())
@@ -52,6 +61,8 @@ func main() {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := router.Group("/api/v1")
 	{
@@ -64,23 +75,29 @@ func main() {
 			users.DELETE("/:id", userHandler.DeleteUser)
 		}
 
-		cooks := api.Group("/cooks")
+		auth := api.Group("/auth")
 		{
-			cooks.POST("", cookHandler.CreateCook)
-			cooks.POST("/login", cookHandler.Login)
-			cooks.GET("", cookHandler.GetAllCooks)
-			cooks.GET("/:id", cookHandler.GetCook)
-			cooks.PUT("/:id", cookHandler.UpdateCook)
-			cooks.DELETE("/:id", cookHandler.DeleteCook)
+			auth.POST("/register", chefHandler.Register)
+			auth.POST("/login", chefHandler.Login)
 		}
 
-		profiles := api.Group("/cook-profiles")
+		chefs := api.Group("/chefs")
 		{
-			profiles.POST("", cookProfileHandler.CreateProfile)
-			profiles.GET("", cookProfileHandler.GetAllProfiles)
-			profiles.GET("/:id", cookProfileHandler.GetProfile)
-			profiles.PUT("/:id", cookProfileHandler.UpdateProfile)
-			profiles.DELETE("/:id", cookProfileHandler.DeleteProfile)
+			chefs.GET("/usernames", chefHandler.GetUsernames)
+			chefs.GET("", chefHandler.GetAllChefs)
+			chefs.GET("/:id", chefHandler.GetChef)
+			chefs.PUT("/:id", chefHandler.UpdateChef)
+			chefs.PUT("/:id/profile", chefHandler.UpdateProfile)
+			chefs.DELETE("/:id", chefHandler.DeleteChef)
+		}
+
+		profiles := api.Group("/chef-profiles")
+		{
+			profiles.POST("", chefProfileHandler.CreateProfile)
+			profiles.GET("", chefProfileHandler.GetAllProfiles)
+			profiles.GET("/:id", chefProfileHandler.GetProfile)
+			profiles.PUT("/:id", chefProfileHandler.UpdateProfile)
+			profiles.DELETE("/:id", chefProfileHandler.DeleteProfile)
 		}
 	}
 
