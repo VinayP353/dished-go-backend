@@ -11,28 +11,25 @@ import (
 	"github.com/yourusername/dished-go-backend/internal/repository"
 )
 
-type CookProfileService interface {
-	CreateProfile(req *models.CreateCookProfileRequest) (*models.CookProfile, error)
-	GetProfile(id uint) (*models.CookProfile, error)
-	GetAllProfiles() ([]models.CookProfile, error)
-	UpdateProfile(id uint, req *models.UpdateCookProfileRequest) (*models.CookProfile, error)
+type ChefProfileService interface {
+	CreateProfile(req *models.CreateChefProfileRequest) (*models.ChefProfile, error)
+	GetProfile(id uint) (*models.ChefProfile, error)
+	GetAllProfiles() ([]models.ChefProfile, error)
+	UpdateProfile(id uint, req *models.UpdateChefProfileRequest) (*models.ChefProfile, error)
 	DeleteProfile(id uint) error
 }
 
-type cookProfileService struct {
-	repo  repository.CookProfileRepository
+type chefProfileService struct {
+	repo  repository.ChefProfileRepository
 	redis *redis.Client
 }
 
-func NewCookProfileService(repo repository.CookProfileRepository, redisClient *redis.Client) CookProfileService {
-	return &cookProfileService{
-		repo:  repo,
-		redis: redisClient,
-	}
+func NewChefProfileService(repo repository.ChefProfileRepository, redisClient *redis.Client) ChefProfileService {
+	return &chefProfileService{repo: repo, redis: redisClient}
 }
 
-func (s *cookProfileService) CreateProfile(req *models.CreateCookProfileRequest) (*models.CookProfile, error) {
-	profile := &models.CookProfile{
+func (s *chefProfileService) CreateProfile(req *models.CreateChefProfileRequest) (*models.ChefProfile, error) {
+	profile := &models.ChefProfile{
 		FirstName:     req.FirstName,
 		LastName:      req.LastName,
 		PreferredName: req.PreferredName,
@@ -40,21 +37,18 @@ func (s *cookProfileService) CreateProfile(req *models.CreateCookProfileRequest)
 		Description:   req.Description,
 		Verified:      false,
 	}
-
 	if err := s.repo.Create(profile); err != nil {
 		return nil, err
 	}
-
 	return profile, nil
 }
 
-func (s *cookProfileService) GetProfile(id uint) (*models.CookProfile, error) {
+func (s *chefProfileService) GetProfile(id uint) (*models.ChefProfile, error) {
 	ctx := context.Background()
-	cacheKey := fmt.Sprintf("cook_profile:%d", id)
+	cacheKey := fmt.Sprintf("chef_profile:%d", id)
 
-	cached, err := s.redis.Get(ctx, cacheKey).Result()
-	if err == nil {
-		var profile models.CookProfile
+	if cached, err := s.redis.Get(ctx, cacheKey).Result(); err == nil {
+		var profile models.ChefProfile
 		if err := json.Unmarshal([]byte(cached), &profile); err == nil {
 			return &profile, nil
 		}
@@ -67,20 +61,18 @@ func (s *cookProfileService) GetProfile(id uint) (*models.CookProfile, error) {
 
 	profileJSON, _ := json.Marshal(profile)
 	s.redis.Set(ctx, cacheKey, profileJSON, 10*time.Minute)
-
 	return profile, nil
 }
 
-func (s *cookProfileService) GetAllProfiles() ([]models.CookProfile, error) {
+func (s *chefProfileService) GetAllProfiles() ([]models.ChefProfile, error) {
 	return s.repo.GetAll()
 }
 
-func (s *cookProfileService) UpdateProfile(id uint, req *models.UpdateCookProfileRequest) (*models.CookProfile, error) {
+func (s *chefProfileService) UpdateProfile(id uint, req *models.UpdateChefProfileRequest) (*models.ChefProfile, error) {
 	profile, err := s.repo.GetByID(id)
 	if err != nil {
 		return nil, err
 	}
-
 	if req.FirstName != nil {
 		profile.FirstName = *req.FirstName
 	}
@@ -99,21 +91,14 @@ func (s *cookProfileService) UpdateProfile(id uint, req *models.UpdateCookProfil
 	if req.Verified != nil {
 		profile.Verified = *req.Verified
 	}
-
 	if err := s.repo.Update(profile); err != nil {
 		return nil, err
 	}
-
-	ctx := context.Background()
-	cacheKey := fmt.Sprintf("cook_profile:%d", id)
-	s.redis.Del(ctx, cacheKey)
-
+	s.redis.Del(context.Background(), fmt.Sprintf("chef_profile:%d", id))
 	return profile, nil
 }
 
-func (s *cookProfileService) DeleteProfile(id uint) error {
-	ctx := context.Background()
-	cacheKey := fmt.Sprintf("cook_profile:%d", id)
-	s.redis.Del(ctx, cacheKey)
+func (s *chefProfileService) DeleteProfile(id uint) error {
+	s.redis.Del(context.Background(), fmt.Sprintf("chef_profile:%d", id))
 	return s.repo.Delete(id)
 }
