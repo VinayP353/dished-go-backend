@@ -17,6 +17,33 @@ func NewChefHandler(service service.ChefService) *ChefHandler {
 	return &ChefHandler{service: service}
 }
 
+// CreateChef godoc
+// @Summary      Create a new chef
+// @Tags         chefs
+// @Accept       json
+// @Produce      json
+// @Param        body  body      models.CreateChefRequest  true  "Create chef payload"
+// @Success      201   {object}  models.Chef
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      500   {object}  map[string]interface{}
+// @Router       /chefs [post]
+func (h *ChefHandler) CreateChef(c *gin.Context) {
+	// Step 1: Parse and validate the JSON body
+	var req models.CreateChefRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// Step 2: Call the service
+	chef, err := h.service.CreateChef(&req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// Step 3: Return the response
+	c.JSON(http.StatusCreated, gin.H{"message": "chef created successfully", "chef": chef})
+}
+
 // Register godoc
 // @Summary      Register a new chef
 // @Tags         auth

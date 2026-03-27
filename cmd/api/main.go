@@ -83,6 +83,7 @@ func main() {
 
 		chefs := api.Group("/chefs")
 		{
+			chefs.POST("", chefHandler.CreateChef)
 			chefs.GET("/usernames", chefHandler.GetUsernames)
 			chefs.GET("", chefHandler.GetAllChefs)
 			chefs.GET("/:id", chefHandler.GetChef)

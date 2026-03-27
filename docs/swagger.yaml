@@ -70,6 +70,21 @@ definitions:
     - first_name
     - last_name
     type: object
+  models.CreateChefRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
   models.LoginRequest:
     properties:
       password:
@@ -349,6 +364,36 @@ paths:
             additionalProperties: true
             type: object
       summary: Get all chefs
+      tags:
+      - chefs
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Create chef payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateChefRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Chef'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new chef
       tags:
       - chefs
   /chefs/{id}:

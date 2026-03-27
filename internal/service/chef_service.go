@@ -17,6 +17,7 @@ import (
 type ChefService interface {
 	Register(req *models.RegisterRequest) (*models.Chef, error)
 	Login(username, password string) (*models.Chef, error)
+	CreateChef(req *models.CreateChefRequest) (*models.Chef, error)
 	GetChef(id uint) (*models.Chef, error)
 	GetAllChefs() ([]models.Chef, error)
 	GetAllUsernames() ([]string, error)
@@ -84,6 +85,50 @@ func (s *chefService) Register(req *models.RegisterRequest) (*models.Chef, error
 	if err := s.repo.Create(chef); err != nil {
 		return nil, err
 	}
+	return chef, nil
+}
+
+func (s *chefService) CreateChef(req *models.CreateChefRequest) (*models.Chef, error) {
+	// Step 1: Validate password strength
+	if err := s.validatePassword(req.Password); err != nil {
+		return nil, err
+	}
+
+	// Step 2: Check username not already taken
+	if _, err := s.repo.GetByUsername(req.Username); err == nil {
+		return nil, errors.New("username already exists")
+	}
+
+	// Step 3: Check email not already taken
+	if _, err := s.repo.GetByEmail(req.Email); err == nil {
+		return nil, errors.New("email already exists")
+	}
+
+	// Step 4: Hash the password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 5: Build the Chef object
+	chef := &models.Chef{
+		Username:         req.Username,
+		Password:         string(hashedPassword),
+		Email:            req.Email,
+		Status:           "active",
+		CookieExpiration: int64(24 * time.Hour),
+		ChefProfile: &models.ChefProfile{
+			FirstName: req.FirstName,
+			LastName:  req.LastName,
+			Verified:  false,
+		},
+	}
+
+	// Step 6: Save to database
+	if err := s.repo.Create(chef); err != nil {
+		return nil, err
+	}
+
 	return chef, nil
 }
 
